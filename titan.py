@@ -4,7 +4,10 @@ from numpy import *
 
 WIDTH 	= 1200
 HEIGHT	= 800
-PERIOD	= 0.025
+PERIOD	= 2
+PLANTAGE = 5
+PLANTMATURE = 10
+
 xo	= array([1,0])
 yo	= array([0,1])
 
@@ -36,6 +39,8 @@ class nodeC(object):
 			self.position=position
 		else:
 			self.position=array([rand1*WIDTH,rand2*HEIGHT])
+			
+		self.newp = self.position
 
 		if v!=None:
 			self.v=v
@@ -65,8 +70,7 @@ class nodeC(object):
 		
 		self.obj = self.create_shape()
 	def create_shape(self):
-		self.obj = self.shape(int(self.position[0]-self.r),int(self.position[1]-self.r),int(self.position[0
-]+self.r),int(self.position[1]+self.r),fill = self.color)
+		self.obj = self.shape(int(self.position[0]-self.r),int(self.position[1]-self.r),int(self.position[0]+self.r),int(self.position[1]+self.r),fill = self.color)
 		return self.obj
 
 	def delete_shape(self):
@@ -113,6 +117,74 @@ class nodeC(object):
 		self.create_shape()
 # END of class nodeC
 
+class plantC(nodeC):
+	
+	def __init__(self,position=None,v=None,typ=1,r=3):
+		nodeC.__init__(self,position=position,v=v,typ=1,r=3)
+		self.age = 0
+		self.area = self.r
+		self.m = self.r
+		self.shadow = 0
+	
+	def grow(self):
+		self.age += 1
+		self.area = self.r - self.shadow
+		if self.age <= PLANTAGE:
+			if self.r < PLANTMATURE:
+				self.r = self.r + self.area - self.age
+			else:
+				self.givebirth()
+				self.r -= 3
+		else:
+			self.r -= self.age
+			if self.r <= 1:
+				self.die()
+				
+	def givebirth(self):
+		rand1 = random.random()
+		rand2 = random.random()
+		newposition = self.position + array([rand1*100-50,rand2*100-50])
+		print self.position
+		print newposition
+		nq.append(plantC(position=newposition))
+		print 'give birth at',newposition
+		
+	def die(self):
+		canvas.delete(self.obj)
+		nq.remove(self)
+		print 'plant %d died'%self.obj
+		
+	def request(self):
+		nodeC.request(self)
+		
+	def grant(self):
+		nodeC.grant(self)
+		self.grow()
+		
+	def collision(self):
+		for collio in self.colliq:
+			if collio=='north':
+				self.v[1]=-self.v[1]
+				self.newp[1]=-self.newp[1]
+			elif collio=='south':
+				self.v[1] = -self.v[1]
+				self.newp[1] = 2.0*HEIGHT-self.newp[1]
+			elif collio=='west':
+				self.v[0] = -self.v[0]
+				self.newp[0] = -self.newp[0]
+			elif collio=='east':
+				self.v[0]=-self.v[0]
+				self.newp[0] = 2.0*WIDTH-self.newp[0]
+			else:
+				shadow = self.r+collio.r-distanceof(self.position,collio.position)
+				self.shadow = shadow
+				if collio.typ==1:
+					collio.shadow = shadow
+				self.hitby(collio)
+				collio.hitby(self)
+		self.collio=[]
+		
+
 loopcount = 0
 
 timeup= threading.Event()
@@ -135,15 +207,16 @@ def mytimer():
 		else:
 			timeup.set()
 t1 = threading.Thread(target=mytimer)
-t1.setDaemon(True)
+#t1.setDaemon(True)
 
 def timeisup():
 	global loopcount
 	global mutex
 
 	while True:
-		timeup.wait()
-		timeup.clear()
+		#timeup.wait()
+		#timeup.clear()
+		time.sleep(PERIOD)
 		time1 = time.time()
 		# stage 1
 		for node in nq:
@@ -173,10 +246,20 @@ def timeisup():
 		time2=time.time()
 
 t2 = threading.Thread(target=timeisup)
-t2.setDaemon(True)
+#t2.setDaemon(True)
+
+def test1():
+	while True:
+		time.sleep(1)
+		print time.time()
+		
+t3 = threading.Thread(target=test1)
+t3.setDaemon(True)
+t3.start()
 
 nq=[]
-nq.append(nodeC())
+nq.append(plantC())
+
 t1.start()
 t2.start()
 
